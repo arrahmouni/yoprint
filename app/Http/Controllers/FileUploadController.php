@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\ProcessCsvUpload;
+use Exception;
 use App\Models\FileUpload;
-use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use App\Services\FileUploadService;
+use App\Http\Requests\StoreFileRequest;
 use App\Http\Resources\FileUploadResource;
 
 class FileUploadController extends Controller
 {
+    public function __construct(protected FileUploadService $fileUploadService) {}
+
     public function index()
     {
         $uploads = FileUpload::latest()
@@ -17,37 +21,20 @@ class FileUploadController extends Controller
         return view('upload', compact('uploads'));
     }
 
-    public function store(Request $request)
+    public function store(StoreFileRequest $request): JsonResponse
     {
         try {
-            $request->validate([
-                'csv_file' => 'required|file|mimes:csv,txt|max:102400'
-            ]);
-
-            $file = $request->file('csv_file');
-            $filename = time() . '_' . $file->getClientOriginalName();
-
-            $file->storeAs('uploads', $filename);
-
-            $fileUpload = FileUpload::create([
-                'filename' => $filename,
-                'original_name' => $file->getClientOriginalName(),
-            ]);
-
-            ProcessCsvUpload::dispatch($fileUpload);
+            $fileUpload = $this->fileUploadService->uploadAndProcess($request->file('csv_file'));
 
             return response()->json([
                 'success' => true,
                 'message' => 'File uploaded successfully and is being processed',
-                'upload' => new FileUploadResource($fileUpload)
+                'upload' => new FileUploadResource($fileUpload),
             ]);
-
-        } catch (\Exception $e) {
-            logger()->error('Upload error: ' . $e->getMessage());
-
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to upload file. Please try again.'
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
