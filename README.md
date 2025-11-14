@@ -1,59 +1,102 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# YoPrint
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+YoPrint is a small Laravel application to upload CSV files and process them in the background. The UI uses Tailwind + Alpine and Vite for asset bundling. Uploaded files are tracked in the database via the `file_uploads` table and processed by a queued job.
 
-## About Laravel
+## Features
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- Upload CSV files via a web UI ([resources/views/upload.blade.php](resources/views/upload.blade.php))
+- Background processing using a queued job ([App\Jobs\ProcessCsvUpload](app/Jobs/ProcessCsvUpload.php))
+- Track processing progress with the `FileUpload` model ([App\Models\FileUpload](app/Models/FileUpload.php))
+- Validation via a form request ([App\Http\Requests\StoreFileRequest](app/Http/Requests/StoreFileRequest.php))
+- API endpoints and controller at the web routes ([routes/web.php](routes/web.php) — controller: [`App\Http\Controllers\FileUploadController`](app/Http/Controllers/FileUploadController.php))
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Quickstart
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+1. Clone the repository and install PHP dependencies:
+   ```sh
+   composer install
+   ```
 
-## Learning Laravel
+2. Install frontend dependencies and build assets:
+   ```sh
+   npm install
+   npm run dev    # or `npm run build` for production
+   ```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+3. Copy the environment file and set values:
+   ```sh
+   cp .env.example .env
+   # edit .env to set DB_*, QUEUE_CONNECTION, MAIL_*, etc.
+   ```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+4. Generate the app key:
+   ```sh
+   php artisan key:generate
+   ```
 
-## Laravel Sponsors
+5. Run database migrations:
+   ```sh
+   php artisan migrate
+   ```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+6. Create a storage symlink (for public file access):
+   ```sh
+   php artisan storage:link
+   ```
 
-### Premium Partners
+7. Start a queue worker to process uploaded CSVs:
+   ```sh
+   php artisan queue:work
+   ```
+   (Alternatively use `php artisan queue:listen` or a supervisor in production.)
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+8. Serve the application locally:
+   ```sh
+   php artisan serve
+   ```
+   Then open http://127.0.0.1:8000 to access the upload UI.
+
+## Endpoints
+
+- GET / — upload UI handled by [`App\Http\Controllers\FileUploadController@index`](app/Http/Controllers/FileUploadController.php) ([routes/web.php](routes/web.php))
+- POST /upload — upload CSV file via [`App\Http\Requests\StoreFileRequest`](app/Http/Requests/StoreFileRequest.php) and processed by [`App\Services\FileUploadService`](app/Services/FileUploadService.php)
+- GET /upload/status — status polling endpoint for upload progress (see controller)
+
+## Important files & symbols
+
+- [`App\Models\FileUpload`](app/Models/FileUpload.php) — model for uploaded files
+- [`App\Services\FileUploadService`](app/Services/FileUploadService.php) — handles storing uploads and dispatching jobs
+- [`App\Jobs\ProcessCsvUpload`](app/Jobs/ProcessCsvUpload.php) — job that processes the CSV in the background
+- [`App\Http\Controllers\FileUploadController`](app/Http/Controllers/FileUploadController.php) — controller for upload flow
+- [`App\Http\Requests\StoreFileRequest`](app/Http/Requests/StoreFileRequest.php) — validation for uploaded files
+- [`App\Http\Resources\FileUploadResource`](app/Http/Resources/FileUploadResource.php) — API resource for upload responses
+- Database migration for file uploads: [database/migrations/2025_11_08_202012_create_file_uploads_table.php](database/migrations/2025_11_08_202012_create_file_uploads_table.php)
+- Upload view: [resources/views/upload.blade.php](resources/views/upload.blade.php)
+- Frontend assets: [resources/js/app.js](resources/js/app.js), [resources/css/app.css](resources/css/app.css), [vite.config.js](vite.config.js)
+- Project entrypoints: [artisan](artisan), [public/index.php](public/index.php), [bootstrap/app.php](bootstrap/app.php)
+- Package manifests: [composer.json](composer.json), [package.json](package.json)
+- Example env: [.env.example](.env.example)
+
+## Tests
+
+Run automated tests with:
+
+```sh
+php artisan test
+# or
+vendor/bin/phpunit
+```
+
+## Notes
+
+- Ensure your queue connection is configured in `.env` (default is `database`) and migrations for queues (jobs) are run if needed.
+- Max upload size is validated in [`App\Http\Requests\StoreFileRequest`](app/Http/Requests/StoreFileRequest.php) (`max:102400`).
+- Use `php artisan queue:work --sleep=3 --tries=3` (or Supervisor) in production for reliable job processing.
 
 ## Contributing
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Pull requests and issues are welcome. Keep changes small and focused.
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+This project inherits the licensing of included components. See [composer.json](composer.json) for PHP package licensing.
